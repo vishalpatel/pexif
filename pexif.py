@@ -909,7 +909,7 @@ class ExifSegment(DefaultSegment):
 
     def get_primary(self, create=False):
         """Return the attributes image file descriptor. If it doesn't
-        exit return None, unless create is True in which case a new
+        exist return None, unless create is True in which case a new
         descriptor is created."""
         if len(self.ifds) > 0:
             return self.ifds[0]
@@ -1084,6 +1084,45 @@ class JpegFile:
             return self.add_exif()
         else:
             return None
+
+    def copy_exif(self, otherJpegFile):
+        """ copy_exif copies ExifSegment from otherJpegFile (if it exists) and
+            sets it to current object. It will override existing ExifSegment.
+        """
+        src_exif = otherJpegFile.get_exif()
+        if not src_exif:
+            return False
+
+        for i in range(len(self._segments)):
+            segment = self._segments[i]
+            if segment.__class__ == ExifSegment:
+                self._segments[i] = src_exif
+                return True
+        return False
+
+    def copy_all_metainfo(self, otherJpegFile):
+        """ Forget all APP* and COM segments and copy them form otherJpegFile. Note: this
+            operation is destructive. It will forget current segments.
+            params:
+                otherJpegFile - instance of JpegFile
+        """
+        segments_to_copy = []
+        for s in otherJpegFile._segments:
+            debug('TOCOPY:', jpeg_markers[s.marker][0] , len(s.data))
+            if jpeg_markers[s.marker][0].find('APP') >=0 :
+                segments_to_copy.append(s)
+
+        current_segments = list(self._segments)
+
+        for s in self._segments:
+            if jpeg_markers[s.marker][0].find('APP') >=0 :
+                debug('REMOVING:', jpeg_markers[s.marker][0], len(s.data))
+                current_segments.remove(s)
+
+        for s in segments_to_copy:
+            debug('INSERTING:', jpeg_markers[s.marker][0], len(s.data))
+            self._segments.insert(0, s)
+
 
     def add_exif(self):
         """add_exif adds a new ExifSegment to a file, and returns
